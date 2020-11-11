@@ -1,0 +1,117 @@
+---
+title: "kg-age-analyses-supplementary"
+author: "Jessica E. Kosie"
+date: "10/6/2020"
+output: word_document
+---
+
+```{r setup, warning = FALSE, include = FALSE}
+library("papaja")
+library(tidyverse)
+library(lme4)
+library(lmerTest)
+library(here)
+library(viridis)
+library(knitr)
+library(generics)
+```
+
+```{r analysis-preferences, include = FALSE}
+# Seed for random number generation
+set.seed(42)
+knitr::opts_chunk$set(cache.extra = knitr::rand_seed, echo = FALSE, warning = FALSE, message = FALSE, cache = FALSE)
+
+# make sure summary() uses Type III sums of squares
+afex::set_sum_contrasts()
+
+# turn off scientific notation
+options(scipen = 999)
+
+# set plot theme
+theme_set(theme_bw() + 
+            theme(strip.background = element_blank(), 
+                  panel.grid = element_blank())) # nice theme with limited extras
+```
+```{r load data}
+participants <- read_csv(here("data/participant_data.csv"))
+kg_data <- read_csv(here("data/cleaned_dt_data.csv"))
+seg_judgments <- read_csv(here("data/seg_judgment_data.csv"))
+
+```
+# Boundary Advantage and Pixel Change Analysis, including age as a predictor
+```{r add age to pixel change model, include = FALSE}
+#average across runs
+df <- kg_data %>% 
+  group_by(subid, slide_num_adj, condition, pix_adj, slide_type, age_months) %>% 
+  summarise(dwell_time = mean(logDT_win, na.rm = TRUE),
+            mean_milli = mean(milliDT, na.rm = TRUE))
+
+#get summary statistics for boundary advantage
+ba_stats <- df %>% 
+  group_by(slide_type) %>% 
+  summarise(mean = mean(dwell_time, na.rm = TRUE),
+            sd = sd(dwell_time, na.rm = TRUE))
+
+#dt_mod, now with pixel change
+dt_pix_mod <- lmer(dwell_time ~ slide_type * scale(pix_adj, center = TRUE) + (slide_type|subid), data = df, REML = FALSE)
+summary(dt_pix_mod)
+dt_pix_coefs <- summary(dt_pix_mod)$coef
+
+#dt_mod, now with pixel change and age
+dt_pix_mod_age <- lmer(dwell_time ~ slide_type * scale(pix_adj, center = TRUE) * age_months + (slide_type|subid), data = df, REML = FALSE)
+summary(dt_pix_mod_age)
+dt_pix_age_coefs <- summary(dt_pix_mod_age)$coef
+```
+In the manuscript (for the model without age) we reported that - replicating previous analyses with preschoolers and adults - slide type was a significant predictor of dwell time such that preschoolers’ dwell times were significantly longer to boundary (_M_ = `r round(ba_stats$mean[1], 2)`, _SD_ = `r round(ba_stats$sd[1], 2)`) over non-boundary slides (_M_ = `r round(ba_stats$mean[2], 2)`, _SD_ = `r round(ba_stats$sd[2], 2)`), $\beta=`r round(dt_pix_coefs["slide_type1","Estimate"], 2)`$ ($SE=`r round(dt_pix_coefs["slide_type1","Std. Error"], 2)`$), $p = `r papaja::printp(dt_pix_coefs["slide_type1","Pr(>|t|)"])`$. However, pixel change was not a significant predictor, $\beta=`r round(dt_pix_coefs["scale(pix_adj, center = TRUE)","Estimate"], 2)`$ ($SE=`r round(dt_pix_coefs["scale(pix_adj, center = TRUE)","Std. Error"], 2)`$), $p = `r papaja::printp(dt_pix_coefs["scale(pix_adj, center = TRUE)","Pr(>|t|)"])`$, nor did it interact with slide type, $\beta=`r round(dt_pix_coefs["slide_type1:scale(pix_adj, center = TRUE)","Estimate"], 2)`$ ($SE=`r round(dt_pix_coefs["slide_type1:scale(pix_adj, center = TRUE)","Std. Error"], 2)`$), $p = `r papaja::printp(dt_pix_coefs["slide_type1:scale(pix_adj, center = TRUE)","Pr(>|t|)"])`$.
+
+We then added age and all interactions with age to the model. Again, slide type was a significant predictor of dwell time, $\beta=`r round(dt_pix_age_coefs["slide_type1","Estimate"], 2)`$ ($SE=`r round(dt_pix_age_coefs["slide_type1","Std. Error"], 2)`$), $p = `r papaja::printp(dt_pix_age_coefs["slide_type1","Pr(>|t|)"])`$. Age was also a significant predictor, such that younger children's dwell times were longer than older children's (see Figure 1), $\beta=`r round(dt_pix_age_coefs["age_months","Estimate"], 3)`$ ($SE=`r round(dt_pix_age_coefs["age_months","Std. Error"], 3)`$), $p = `r papaja::printp(dt_pix_age_coefs["age_months","Pr(>|t|)"])`$. Pixel change was not a significant predictor of dwell times, $\beta=`r round(dt_pix_age_coefs["scale(pix_adj, center = TRUE)","Estimate"], 2)`$ ($SE=`r round(dt_pix_age_coefs["scale(pix_adj, center = TRUE)","Std. Error"], 2)`$), $p = `r papaja::printp(dt_pix_age_coefs["scale(pix_adj, center = TRUE)","Pr(>|t|)"])`$ and none of the interactions between any of the variables were significant, $ps > `r papaja::printp(dt_pix_age_coefs["slide_type1:age_months","Pr(>|t|)"])`$. Thus, while age was correlated with overall dwell times, including age in the model did not interact with or affect any of our conclusions. 
+
+```{r fig1, fig.cap="Relation between participant age and overall average dwell time. Each point represents an individual child, and color of the points indicates the slideshow that the child viewed.", fig.align = "center", fig.width = 7}
+
+#get average dwell times
+dt_means <- df %>% 
+  group_by(subid, age_months, condition) %>% 
+  summarise(avg_dt = mean(dwell_time, na.rm = TRUE)) %>% 
+  mutate(condition = recode(condition, barrier = "Canonical-Arc",
+                            nothing = "Non-Canonical-Arc", 
+                            straight = "Canonical-Straight")) 
+
+dt_means$condition <- factor(dt_means$condition, levels = c("Canonical-Arc", "Non-Canonical-Arc", "Canonical-Straight"))
+
+ggplot(dt_means, aes(x = age_months, y = avg_dt)) +
+  geom_point(aes(color = condition)) +
+  geom_smooth(method="lm", color = "black") +
+  labs(x = "Age in Months", y = expression(paste("Average ", ~Log["10"], " Dwell Time")), color = "Slideshow")
+```
+
+# Causal Violation Analysis, including age as a predictor
+```{r add age to causal violation model, include = FALSE}
+bump <- df %>% 
+  filter(slide_num_adj >= 12 & slide_num_adj <=13 & condition != "straight") 
+
+bump_summary <- bump %>% 
+  group_by(condition) %>% 
+  summarise(mean = mean(dwell_time, na.rm = TRUE),
+            sd = sd(dwell_time, na.rm = TRUE))
+
+bump_mod <- lmer(dwell_time ~ condition + (1|subid), data = bump)
+summary(bump_mod)
+anova(bump_mod)
+bump_coefs <- summary(bump_mod)$coef
+
+#plus pixel
+bump_mod_pix <- lmer(dwell_time ~ condition * scale(pix_adj, center = TRUE) + (1|subid), data = bump)
+summary(bump_mod_pix)
+anova(bump_mod_pix)
+
+#plus age
+bump_mod_age <- lmer(dwell_time ~ condition * age_months + (1|subid), data = bump)
+summary(bump_mod_age)
+anova(bump_mod_age)
+bump_age_coefs <- summary(bump_mod_age)$coef
+```
+In the analysis without age, outlined in the manuscript, we reported that numerically, mean dwell times were greater to the region of causal violation in the _non-canonical-arc_ slideshow (_M_ = `r round(bump_summary$mean[2], 2)`, _SD_ = `r round(bump_summary$sd[2], 2)`) than in the _canonical-arc_  (_M_ = `r round(bump_summary$mean[1], 2)`, _SD_ = `r round(bump_summary$sd[1], 2)`) slideshows. However, a linear mixed effects model (including a fixed effect of condition and random intercepts for subjects) did not reach statistical significance, $\beta=`r round(bump_coefs["condition1","Estimate"], 2)`$ ($SE=`r round(bump_coefs["condition1","Std. Error"], 2)`$), $p = `r papaja::printp(bump_coefs["condition1","Pr(>|t|)"])`$.
+
+In a model including age and all interactions with age, none of the individual predictors - including age - nor interactions were significant, $ps > `r papaja::printp(bump_age_coefs["age_months","Pr(>|t|)"])`$.
+
+

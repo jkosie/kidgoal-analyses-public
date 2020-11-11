@@ -1,0 +1,6 @@
+﻿variable_name,variable_description,variable_type,possible_values,value_labels,notes
+condition,indicates which slideshow the participant viewed,character,barrier; nothing; straight,barrier - actor reaching over a barrier for a ball; nothing - actor reaching up and over in the absence of a barrier for a ball; straight - actor reaching straight for a ball,in the manuscript these conditions are called: barrier = canonical-arc; nothing = non-canonical-arc; straight = canonical-straight
+slide_number,slide number from 1-20,numeric,2-19,N/A,these slide numbers correspond to the slideshow images included on the OSF page associated with this work
+total,total number of naïve coders (out of 37) who nominated each slide as a boundary,numeric,N/A,N/A,
+slide_type,expert coders' judgments of slide type,character,boundary; within,boundary - indicates that a slide corresponds to an event boundary; within - indicates that a slide does not correspond to an event boundry (or that it corresponds to a within-unit region of action),"in the manuscript, we called these boundary and non-boundary slides"
+st_numeric,slide type as a 1 (boundary) or 0 (non-boundary),numeric,1 or 0,necessary to calculate the point-biserial correlation,
